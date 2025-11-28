@@ -8,7 +8,8 @@ use App\Facades\Payment;
 class TestController extends Controller
 {
 
-    public function index(){
-         return Payment::pay(20);
+    public function index()
+    {
+        return "test";
     }
 }

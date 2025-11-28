@@ -16,14 +16,14 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function login(Request $request) {
-        return $request->all();
+    public function login(Request $request)
+    {
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        $admin = Admin::where('email', $request->email)->with('permissions')->first();
+        $admin = Admin::where('email', $request->email)->first();
 
         if (!$admin || !Hash::check($request->password, $admin->password)) {
             throw ValidationException::withMessages([
@@ -46,11 +46,6 @@ class AuthController extends Controller
                 'lfm_token' => bcrypt($admin->token)
             ]);
 
-        AdminLoginHistory::create([
-            'admin_id' => $admin->id,
-            'ip' => $request->ip()
-        ]);
-
         return new AuthResource($admin);
     }
 
@@ -59,29 +54,30 @@ class AuthController extends Controller
         return $request->user();
     }
 
-    public function logout() {
+    public function logout()
+    {
         Auth::guard('admin')->user()->currentAccessToken()->delete();
     }
 
     public function createUser(Request $request)
     {
         $request->validate([
-            'username'=>'required',
-            'email'=> 'required|email|max:255|unique:users,email',
-            'password'=>'required',
-            'firstname'=>'required',
-            'permissions'=>'required|array',
+            'username' => 'required',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required',
+            'firstname' => 'required',
+            'permissions' => 'required|array',
         ]);
         $user = new Admin();
         $user->first_name = $request->firstname;
         $user->email = $request->email;
         $user->name = $request->username;
         $user->status = $request->status;
-        $user->password =  bcrypt($request->password);
+        $user->password = bcrypt($request->password);
         $user->save();
 
-        foreach ($request->permissions as $perminsion){
-            if($perminsion['status']) {
+        foreach ($request->permissions as $perminsion) {
+            if ($perminsion['status']) {
                 $permit = Permission::find($perminsion['id']);
                 if ($permit) {
                     UserPermission::create([
@@ -93,7 +89,7 @@ class AuthController extends Controller
             }
         }
 
-        return response()->json(['success'=> true, 'user'=>$user], 200);
+        return response()->json(['success' => true, 'user' => $user], 200);
     }
 
     public function getPermissions(Request $request)
@@ -103,6 +99,6 @@ class AuthController extends Controller
 
     public function getAuthUserPermission()
     {
-        return UserPermission::where('user_id',Auth::guard('admin')->user()->id)->get();
+        return UserPermission::where('user_id', Auth::guard('admin')->user()->id)->get();
     }
 }

@@ -1,7 +1,4 @@
-
-
 services:
-  # PHP-FPM Service
   app:
     build:
       context: .
@@ -17,13 +14,12 @@ services:
     networks:
       - laravel
 
-  # Nginx Service
   nginx:
     image: nginx:alpine
     container_name: laravel_nginx
     restart: unless-stopped
     ports:
-      - "8000:80"
+      - "80:80"  # Changed to port 80 for direct access
     volumes:
       - ./:/var/www
       - ./docker/nginx/conf.d:/etc/nginx/conf.d
@@ -32,7 +28,6 @@ services:
     depends_on:
       - app
 
-  # MySQL Database Service
   db:
     image: mysql:8.0
     container_name: laravel_db
@@ -47,7 +42,6 @@ services:
     networks:
       - laravel
 
-  # Redis Service
   redis:
     image: redis:alpine
     container_name: laravel_redis
@@ -57,7 +51,6 @@ services:
     networks:
       - laravel
 
-  # Queue Worker Service
   queue:
     build:
       context: .
@@ -76,7 +69,6 @@ services:
       - db
       - redis
 
-
 networks:
   laravel:
     driver: bridge
@@ -84,4 +76,3 @@ networks:
 volumes:
   dbdata:
     driver: local
-
