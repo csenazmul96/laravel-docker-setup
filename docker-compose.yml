@@ -84,6 +84,35 @@ services:
     depends_on:
       - db
       - redis
+  # Scheduler Service (for cron jobs)
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        uid: 501
+    container_name: laravel_scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    command: >
+      /bin/sh -c "
+      while true; do
+        timeout 300 php -d memory_limit=256M artisan schedule:run --verbose --no-interaction || echo 'Scheduler failed at' \$(date);
+        sleep 60;
+      done
+      "
+    volumes:
+      - ./:/var/www
+    networks:
+      - laravel
+    depends_on:
+      - db
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
 networks:
   laravel:
