@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Jobs\ProcessProductImage;
 use App\Models\Banner;
 use App\Models\Product;
+use App\Models\ProductImage;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use App\Enumeration\BannerTypes;
+
 use App\Http\Controllers\Controller;
 use Intervention\Image\Facades\Image;
-use App\Http\Resources\BannerResource;
+
 use App\Http\Resources\ProductResource;
 use Illuminate\Support\Facades\Storage;
 
@@ -45,17 +47,34 @@ class ProductController extends Controller
             'category_id' => 'required',
             'sub_category_id' => 'nullable|integer',
             'status' => 'nullable',
-            'image' => 'required|mimes:jpg,webp,jpeg,gif,png',
+            'images' => 'required ',
         ]);
 
-        $imageWidth = 930;
+        $product = Product::create($data);
+        // Process images
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                // Save uploaded file to temporary location first
+                $tempFilename = 'temp/' . uniqid() . '.' . $image->getClientOriginalExtension();
+                $tempPath = Storage::disk('public')->putFileAs('temp', $image, basename($tempFilename));
 
-        if ($request->hasFile('image')){
-            $data['original_image'] = $request->file('image')->store('products/original');
-            $data['image'] = $this->imageResize($request->file('image'), $imageWidth, $height = null, $folderName = 'products');
+                // Create ProductImage record
+                $productImage = ProductImage::create([
+                    'product_id' => $product->id,
+                    'original_image' => null, // Will be updated by job
+                    'image' => null, // Will be updated by job
+                ]);
+
+                // Dispatch job with ProductImage ID and temp file path
+                ProcessProductImage::dispatch(
+                    $productImage->id,
+                    $tempPath,
+                    $image->getClientOriginalExtension()
+                );
+            }
         }
 
-        return new ProductResource(Product::create($data));
+        return new ProductResource($product);
     }
 
     /**
@@ -63,6 +82,8 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
+        $product->load('images');
+
         return new ProductResource($product);
     }
 
@@ -79,22 +100,21 @@ class ProductController extends Controller
             'status' => 'nullable',
         ]);
 
-        if ($request->hasFile('image')){
-            $request->validate([
-                'image' => 'nullable|mimes:jpg,webp,jpeg,gif,png'
-            ]);
-            $imageWidth = 593;
-            $data['original_image'] = $request->file('image')->store('products/original');
-            $data['image'] = $this->imageResize($request->file('image'), $imageWidth, $height = null, $folderName = 'products');
+        // Process images
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                // Create ProductImage record first (with null paths)
+                $productImage = ProductImage::create([
+                    'product_id' => $product->id,
+                    'original_image' => null, // Will be updated by job
+                    'image' => null, // Will be updated by job
+                ]);
 
-            if($product->original_image && Storage::exists($product->original_image)){
-                Storage::delete($product->original_image);
-            }
-
-            if($product->image && Storage::exists($product->image)){
-                Storage::delete($product->image);
+                // Dispatch job to process image in background
+                ProcessProductImage::dispatch($productImage, $image);
             }
         }
+
 
         return $product->update($data);
     }
@@ -161,7 +181,7 @@ class ProductController extends Controller
             'title' => 'nullable|string'
         ]);
 
-        if ($request->hasFile('image')){
+        if ($request->hasFile('image')) {
             $request->validate([
                 'image' => 'required|mimes:jpg,webp,jpeg,mp4,gif,png'
             ]);
@@ -174,11 +194,11 @@ class ProductController extends Controller
                 $data['image'] = $this->imageResize($request->file('image'), $bannerWidth, $height = null, $folderName = 'product_banner');
             }
 
-            if($banner->original_image && Storage::exists($banner->original_image)){
+            if ($banner->original_image && Storage::exists($banner->original_image)) {
                 Storage::delete($banner->original_image);
             }
 
-            if($banner->image && Storage::exists($banner->image)){
+            if ($banner->image && Storage::exists($banner->image)) {
                 Storage::delete($banner->image);
             }
         }
@@ -242,7 +262,7 @@ class ProductController extends Controller
             'title' => 'nullable|string'
         ]);
 
-        if ($request->hasFile('image')){
+        if ($request->hasFile('image')) {
             $request->validate([
                 'image' => 'required|mimes:jpg,webp,jpeg,mp4,gif,png'
             ]);
@@ -255,11 +275,11 @@ class ProductController extends Controller
                 $data['image'] = $this->imageResize($request->file('image'), $bannerWidth, $height = null, $folderName = 'additional_products');
             }
 
-            if($banner->original_image && Storage::exists($banner->original_image)){
+            if ($banner->original_image && Storage::exists($banner->original_image)) {
                 Storage::delete($banner->original_image);
             }
 
-            if($banner->image && Storage::exists($banner->image)){
+            if ($banner->image && Storage::exists($banner->image)) {
                 Storage::delete($banner->image);
             }
         }
@@ -323,7 +343,7 @@ class ProductController extends Controller
             'title' => 'nullable|string'
         ]);
 
-        if ($request->hasFile('image')){
+        if ($request->hasFile('image')) {
             $request->validate([
                 'image' => 'required|mimes:jpg,webp,jpeg,mp4,gif,png'
             ]);
@@ -336,11 +356,11 @@ class ProductController extends Controller
                 $data['image'] = $this->imageResize($request->file('image'), $bannerWidth, $height = null, $folderName = 'product_bottom_banner');
             }
 
-            if($banner->original_image && Storage::exists($banner->original_image)){
+            if ($banner->original_image && Storage::exists($banner->original_image)) {
                 Storage::delete($banner->original_image);
             }
 
-            if($banner->image && Storage::exists($banner->image)){
+            if ($banner->image && Storage::exists($banner->image)) {
                 Storage::delete($banner->image);
             }
         }
